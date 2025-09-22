@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Calcolatore Ledwall Ufficiale - Ultimate Premium</title>
+<title>Calcolatore Ledwall Ufficiale</title>
 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
 <style>
 body {
@@ -57,7 +57,7 @@ h3 { text-align: center; color: #333; font-weight: normal; font-size: 20px; marg
 .alert { text-align:center; margin-top:30px; padding:20px; background:#fff3cd; color:#856404; border-radius:12px; font-size:18px; box-shadow:0 10px 30px rgba(0,0,0,0.15);}
 .alert a { color:#004b8d; font-weight:bold; text-decoration:none;}
 .alert a:hover { text-decoration:underline;}
-#layoutContainer { margin-top:40px; }
+#layoutContainer { margin-top:40px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:15px; }
 </style>
 </head>
 <body>
@@ -109,31 +109,43 @@ function animateValue(element, start, end, duration) {
   window.requestAnimationFrame(step);
 }
 
-function aggiornaLayout(model, bestMatch) {
+function aggiornaLayout(model, bestMatch, rotatedMatchFlag) {
     layoutContainer.innerHTML = `<h3>Layout suggerito per ${model.nome}</h3>`;
     
     const layout = document.createElement('div');
-    layout.style.display = 'inline-grid';
-    layout.style.gridTemplateColumns = `repeat(${model.colsNeeded}, 30px)`;
+    layout.style.display = 'grid';
     layout.style.gridGap = '3px';
-    
-    for(let r=0; r<model.rowsNeeded; r++) {
-        for(let c=0; c<model.colsNeeded; c++) {
+    layout.style.justifyContent = 'center';
+
+    const isRectangle = model.cabX === 50 && model.cabY === 100;
+    const blockWidth = isRectangle && rotatedMatchFlag ? 2*30 : 30;
+    const blockHeight = isRectangle && rotatedMatchFlag ? 30 : (isRectangle ? 2*30 : 30);
+
+    let cols = rotatedMatchFlag && isRectangle ? Math.ceil(baseInput.value / model.cabY) : Math.ceil(baseInput.value / model.cabX);
+    let rows = rotatedMatchFlag && isRectangle ? Math.ceil(altezzaInput.value / model.cabX) : Math.ceil(altezzaInput.value / model.cabY);
+
+    layout.style.gridTemplateColumns = `repeat(${cols}, ${blockWidth}px)`;
+    layout.style.gridTemplateRows = `repeat(${rows}, ${blockHeight}px)`;
+
+    for(let r=0; r<rows; r++){
+        for(let c=0; c<cols; c++){
             const cell = document.createElement('div');
-            cell.style.width = '30px';
-            cell.style.height = '30px';
+            cell.style.width = `${blockWidth}px`;
+            cell.style.height = `${blockHeight}px`;
             cell.style.borderRadius = '4px';
-            cell.style.transition = 'all 0.3s ease';
-            
-            if(model.perfectMatch) cell.style.backgroundColor = '#00c853';
-            else if(model.nome === bestMatch.nome) cell.style.backgroundColor = '#ffc107';
-            else cell.style.backgroundColor = '#ff5252';
-            
+            cell.style.margin = '1px';
+            cell.style.backgroundColor = '#00aaff';
             layout.appendChild(cell);
         }
     }
-    
     layoutContainer.appendChild(layout);
+
+    if(rotatedMatchFlag){
+      const warning = document.createElement('div');
+      warning.className = 'alert';
+      warning.innerHTML = "⚠️ È possibile ruotare alcuni cabinet rettangolari per ottenere questa misura, ma non è consigliato.";
+      layoutContainer.appendChild(warning);
+    }
 }
 
 function aggiornaCards() {
@@ -146,13 +158,25 @@ function aggiornaCards() {
   if(!base || !altezza) return;
 
   let results = ledwalls.map(model => {
-    const colsNeeded = Math.ceil(base / model.cabX);
-    const rowsNeeded = Math.ceil(altezza / model.cabY);
+    const isRectangle = model.cabX === 50 && model.cabY === 100;
+    let perfectMatch = false;
+    let rotatedMatch = false;
+
+    if(isRectangle){
+      perfectMatch = (base % model.cabX === 0 && altezza % model.cabY === 0);
+      rotatedMatch = (!perfectMatch && (base % model.cabY === 0 && altezza % model.cabX === 0));
+    } else {
+      perfectMatch = (base % model.cabX === 0 && altezza % model.cabY === 0);
+      rotatedMatch = false;
+    }
+
+    const colsNeeded = rotatedMatch ? Math.ceil(base / model.cabY) : Math.ceil(base / model.cabX);
+    const rowsNeeded = rotatedMatch ? Math.ceil(altezza / model.cabX) : Math.ceil(altezza / model.cabY);
     const totalCab = colsNeeded * rowsNeeded;
     const prezzoTotale = totalCab * model.prezzo;
-    const diff = Math.abs(base - (colsNeeded*model.cabX)) + Math.abs(altezza - (rowsNeeded*model.cabY));
-    const perfectMatch = (base % model.cabX === 0) && (altezza % model.cabY === 0);
-    return {...model, colsNeeded, rowsNeeded, totalCab, prezzoTotale, diff, perfectMatch};
+    const diff = Math.abs(base - (colsNeeded*(rotatedMatch?model.cabY:model.cabX))) + Math.abs(altezza - (rowsNeeded*(rotatedMatch?model.cabX:model.cabY)));
+
+    return {...model, colsNeeded, rowsNeeded, totalCab, prezzoTotale, diff, perfectMatch, rotatedMatch};
   });
 
   const perfectMatches = results.filter(r => r.perfectMatch);
@@ -168,13 +192,13 @@ function aggiornaCards() {
   results.forEach(model => {
     const card = document.createElement('div');
     if(model.perfectMatch) card.className = 'card green';
-    else if(model.nome === bestMatch.nome && !model.perfectMatch) card.className = 'card yellow';
+    else if(model.rotatedMatch) card.className = 'card yellow';
     else card.className = 'card red';
 
     if(model.nome === bestPriceModel.nome) card.classList.add('best');
 
     let whatsappLink = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(
-      model.perfectMatch 
+      model.perfectMatch || model.rotatedMatch
       ? `Ti contatto dal calcolatore per il modello ${model.nome} con misura ${base} x ${altezza}. Voglio avere altre informazioni.`
       : `Ti contatto dal calcolatore per un preventivo personalizzato con modello ${model.nome} e misura ${base} x ${altezza}.`
     )}`;
@@ -185,7 +209,7 @@ function aggiornaCards() {
       <p class="tooltip">Dimensione Cabinet: ${model.cabX} x ${model.cabY} cm
         <span class="tooltiptext">${model.info}</span>
       </p>
-      ${model.perfectMatch ? `
+      ${model.perfectMatch || model.rotatedMatch ? `
       <p class="cabinet">Numero Cabinet: <span id="cab${model.nome}">0</span></p>
       <p class="price">Prezzo Totale: <span id="price${model.nome}">0</span>€</p>
       <button onclick="window.open('${whatsappLink}','_blank')">Richiedi Preventivo</button>` 
@@ -194,25 +218,26 @@ function aggiornaCards() {
     `;
     cardsContainer.appendChild(card);
 
-    if(model.perfectMatch) {
+    if(model.perfectMatch || model.rotatedMatch){
       setTimeout(()=>card.classList.add('show'),50);
       animateValue(document.getElementById(`cab${model.nome}`), 0, model.totalCab, 1200);
       animateValue(document.getElementById(`price${model.nome}`), 0, model.prezzoTotale, 1200);
     }
   });
 
-  // alert se nessun perfetto match
-  if(perfectMatches.length === 0) {
+  if(results.some(r=>r.rotatedMatch)){
+    alertContainer.innerHTML = `<div class="alert">
+      ⚠️ È possibile ruotare alcuni cabinet rettangolari per ottenere questa misura, ma non è consigliato.
+    </div>`;
+  } else if(perfectMatches.length === 0){
     alertContainer.innerHTML = `<div class="alert">
       Nessun display corrisponde perfettamente alle tue misure.<br>
-      Display più vicino: <strong>${bestMatch.nome}</strong> (${bestMatch.colsNeeded*bestMatch.cabX} x ${bestMatch.rowsNeeded*bestMatch.cabY} cm)<br>
       Puoi richiedere un preventivo personalizzato cliccando <a href="https://wa.me/${whatsappNumber}?text=${encodeURIComponent(`Ti contatto dal calcolatore per un preventivo personalizzato con misura ${base} x ${altezza}.`)}" target="_blank">qui</a>.
     </div>`;
   }
 
-  // mostra layout
-  const displayLayout = perfectMatches.length > 0 ? perfectMatches[0] : bestMatch;
-  aggiornaLayout(displayLayout, bestMatch);
+  const displayLayout = perfectMatches.length > 0 ? perfectMatches[0] : results.find(r=>r.rotatedMatch) || bestMatch;
+  aggiornaLayout(displayLayout, bestMatch, displayLayout.rotatedMatch);
 }
 
 baseInput.addEventListener('input', aggiornaCards);

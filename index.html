@@ -57,6 +57,7 @@ h3 { text-align: center; color: #333; font-weight: normal; font-size: 20px; marg
 .alert { text-align:center; margin-top:30px; padding:20px; background:#fff3cd; color:#856404; border-radius:12px; font-size:18px; box-shadow:0 10px 30px rgba(0,0,0,0.15);}
 .alert a { color:#004b8d; font-weight:bold; text-decoration:none;}
 .alert a:hover { text-decoration:underline;}
+#layoutContainer { margin-top:40px; }
 </style>
 </head>
 <body>
@@ -78,6 +79,7 @@ h3 { text-align: center; color: #333; font-weight: normal; font-size: 20px; marg
 
   <div id="alertContainer"></div>
   <div class="cards" id="cardsContainer"></div>
+  <div id="layoutContainer"></div>
 </div>
 
 <script>
@@ -93,6 +95,7 @@ const baseInput = document.getElementById('base');
 const altezzaInput = document.getElementById('altezza');
 const cardsContainer = document.getElementById('cardsContainer');
 const alertContainer = document.getElementById('alertContainer');
+const layoutContainer = document.getElementById('layoutContainer');
 const whatsappNumber = "393294397445";
 
 function animateValue(element, start, end, duration) {
@@ -106,15 +109,42 @@ function animateValue(element, start, end, duration) {
   window.requestAnimationFrame(step);
 }
 
+function aggiornaLayout(model, bestMatch) {
+    layoutContainer.innerHTML = `<h3>Layout suggerito per ${model.nome}</h3>`;
+    
+    const layout = document.createElement('div');
+    layout.style.display = 'inline-grid';
+    layout.style.gridTemplateColumns = `repeat(${model.colsNeeded}, 30px)`;
+    layout.style.gridGap = '3px';
+    
+    for(let r=0; r<model.rowsNeeded; r++) {
+        for(let c=0; c<model.colsNeeded; c++) {
+            const cell = document.createElement('div');
+            cell.style.width = '30px';
+            cell.style.height = '30px';
+            cell.style.borderRadius = '4px';
+            cell.style.transition = 'all 0.3s ease';
+            
+            if(model.perfectMatch) cell.style.backgroundColor = '#00c853';
+            else if(model.nome === bestMatch.nome) cell.style.backgroundColor = '#ffc107';
+            else cell.style.backgroundColor = '#ff5252';
+            
+            layout.appendChild(cell);
+        }
+    }
+    
+    layoutContainer.appendChild(layout);
+}
+
 function aggiornaCards() {
   const base = parseFloat(baseInput.value);
   const altezza = parseFloat(altezzaInput.value);
   cardsContainer.innerHTML = '';
   alertContainer.innerHTML = '';
+  layoutContainer.innerHTML = '';
 
   if(!base || !altezza) return;
 
-  // calcoliamo per ogni modello
   let results = ledwalls.map(model => {
     const colsNeeded = Math.ceil(base / model.cabX);
     const rowsNeeded = Math.ceil(altezza / model.cabY);
@@ -127,15 +157,12 @@ function aggiornaCards() {
 
   const perfectMatches = results.filter(r => r.perfectMatch);
   const bestMatch = results.reduce((prev, curr) => curr.diff < prev.diff ? curr : prev);
-
-  // ordina: perfetto match prima, poi il più vicino + prezzo
   results.sort((a,b) => {
     if(a.perfectMatch && !b.perfectMatch) return -1;
     if(!a.perfectMatch && b.perfectMatch) return 1;
     return (a.diff + a.prezzoTotale*0.0001) - (b.diff + b.prezzoTotale*0.0001);
   });
 
-  // determina modello più conveniente (prezzo totale più basso)
   const bestPriceModel = results.reduce((prev, curr) => curr.prezzoTotale < prev.prezzoTotale ? curr : prev);
 
   results.forEach(model => {
@@ -182,6 +209,10 @@ function aggiornaCards() {
       Puoi richiedere un preventivo personalizzato cliccando <a href="https://wa.me/${whatsappNumber}?text=${encodeURIComponent(`Ti contatto dal calcolatore per un preventivo personalizzato con misura ${base} x ${altezza}.`)}" target="_blank">qui</a>.
     </div>`;
   }
+
+  // mostra layout
+  const displayLayout = perfectMatches.length > 0 ? perfectMatches[0] : bestMatch;
+  aggiornaLayout(displayLayout, bestMatch);
 }
 
 baseInput.addEventListener('input', aggiornaCards);

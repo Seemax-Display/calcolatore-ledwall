@@ -109,14 +109,28 @@ function animateValue(element, start, end, duration) {
   window.requestAnimationFrame(step);
 }
 
-function aggiornaLayout(model, bestMatch, rotatedMatchFlag) {
-    layoutContainer.innerHTML = `<h3>Layout suggerito per ${model.nome}</h3>`;
+function aggiornaLayout(models, rotatedMatchFlag) {
+    let title = "Layout suggerito per ";
+    if(Array.isArray(models)){
+        // Se ci sono due rettangolari 50x100 e 50x100, mostra entrambi
+        const p19 = models.find(m=>m.nome==='P1.9');
+        const p391 = models.find(m=>m.nome==='P3.91');
+        if(p19 && p391){
+            title += "P1.9 / P3.91";
+        } else {
+            title += models.map(m=>m.nome).join(" / ");
+        }
+    }
+    else title += models.nome;
+
+    layoutContainer.innerHTML = `<h3>${title}</h3>`;
     
     const layout = document.createElement('div');
     layout.style.display = 'grid';
     layout.style.gridGap = '3px';
     layout.style.justifyContent = 'center';
 
+    const model = Array.isArray(models) ? models[0] : models;
     const isRectangle = model.cabX === 50 && model.cabY === 100;
     const blockWidth = isRectangle && rotatedMatchFlag ? 2*30 : 30;
     const blockHeight = isRectangle && rotatedMatchFlag ? 30 : (isRectangle ? 2*30 : 30);
@@ -174,13 +188,20 @@ function aggiornaCards() {
     const rowsNeeded = rotatedMatch ? Math.ceil(altezza / model.cabX) : Math.ceil(altezza / model.cabY);
     const totalCab = colsNeeded * rowsNeeded;
     const prezzoTotale = totalCab * model.prezzo;
-    const diff = Math.abs(base - (colsNeeded*(rotatedMatch?model.cabY:model.cabX))) + Math.abs(altezza - (rowsNeeded*(rotatedMatch?model.cabX:model.cabY)));
+    const diffX = Math.abs(base - (colsNeeded*(rotatedMatch?model.cabY:model.cabX)));
+    const diffY = Math.abs(altezza - (rowsNeeded*(rotatedMatch?model.cabX:model.cabY)));
+    const diff = diffX + diffY;
 
-    return {...model, colsNeeded, rowsNeeded, totalCab, prezzoTotale, diff, perfectMatch, rotatedMatch};
+    const displayWidth = colsNeeded*(rotatedMatch?model.cabY:model.cabX);
+    const displayHeight = rowsNeeded*(rotatedMatch?model.cabX:model.cabY);
+
+    return {...model, colsNeeded, rowsNeeded, totalCab, prezzoTotale, diff, perfectMatch, rotatedMatch, displayWidth, displayHeight};
   });
 
   const perfectMatches = results.filter(r => r.perfectMatch);
+  const rotatedMatches = results.filter(r => r.rotatedMatch);
   const bestMatch = results.reduce((prev, curr) => curr.diff < prev.diff ? curr : prev);
+
   results.sort((a,b) => {
     if(a.perfectMatch && !b.perfectMatch) return -1;
     if(!a.perfectMatch && b.perfectMatch) return 1;
@@ -225,24 +246,40 @@ function aggiornaCards() {
     }
   });
 
-  if(results.some(r=>r.rotatedMatch)){
+  // Gestione layout e alert
+  if(rotatedMatches.length > 0){
     alertContainer.innerHTML = `<div class="alert">
       ⚠️ È possibile ruotare alcuni cabinet rettangolari per ottenere questa misura, ma non è consigliato.
     </div>`;
+    aggiornaLayout(rotatedMatches, true);
   } else if(perfectMatches.length === 0){
-    alertContainer.innerHTML = `<div class="alert">
-      Nessun display corrisponde perfettamente alle tue misure.<br>
-      Puoi richiedere un preventivo personalizzato cliccando <a href="https://wa.me/${whatsappNumber}?text=${encodeURIComponent(`Ti contatto dal calcolatore per un preventivo personalizzato con misura ${base} x ${altezza}.`)}" target="_blank">qui</a>.
-    </div>`;
+    // Controllo multipli P1.9 / P3.91
+    const rectMatches = results.filter(r => r.cabX===50 && r.cabY===100);
+    let multiRect = [];
+    rectMatches.forEach(r=>{
+        if( (base % r.cabX===0 && altezza % r.cabY===0) || (base % r.cabY===0 && altezza % r.cabX===0)){
+            multiRect.push(r);
+        }
+    });
+    if(multiRect.length>0){
+      alertContainer.innerHTML = `<div class="alert">
+      ⚠️ È possibile ruotare alcuni cabinet rettangolari per ottenere questa misura, ma non è consigliato.
+      </div>`;
+      aggiornaLayout(multiRect, true);
+    } else {
+      alertContainer.innerHTML = `<div class="alert">
+        Per questa misura ti consigliamo un <strong>${bestMatch.nome}</strong> con misure realizzabili ${bestMatch.displayWidth} x ${bestMatch.displayHeight} cm.<br>
+        Puoi richiedere un preventivo personalizzato cliccando <a href="https://wa.me/${whatsappNumber}?text=${encodeURIComponent(`Ti contatto dal calcolatore per un preventivo personalizzato con misura ${base} x ${altezza}.`)}" target="_blank">qui</a>.
+      </div>`;
+      aggiornaLayout([bestMatch], false);
+    }
+  } else {
+    aggiornaLayout(perfectMatches, false);
   }
-
-  const displayLayout = perfectMatches.length > 0 ? perfectMatches[0] : results.find(r=>r.rotatedMatch) || bestMatch;
-  aggiornaLayout(displayLayout, bestMatch, displayLayout.rotatedMatch);
 }
 
 baseInput.addEventListener('input', aggiornaCards);
 altezzaInput.addEventListener('input', aggiornaCards);
 </script>
-
 </body>
 </html>

@@ -266,6 +266,13 @@ function aggiornaCards() {
   const bestPriceModel = results.reduce((prev, curr) => curr.prezzoTotale < prev.prezzoTotale ? curr : prev);
 
   results.forEach(model => {
+    // wrapper per mantenere il pulsante SOTTO la card relativa
+    const wrapper = document.createElement('div');
+    // stile inline minimo per assicurare che il bottone stia sotto e centrato rispetto alla card
+    wrapper.style.display = 'flex';
+    wrapper.style.flexDirection = 'column';
+    wrapper.style.alignItems = 'center';
+
     const card = document.createElement('div');
     if(model.perfectMatch) card.className = 'card green';
     else if(model.rotatedMatch) card.className = 'card yellow';
@@ -284,6 +291,7 @@ function aggiornaCards() {
       : `Ti contatto dal calcolatore per un preventivo personalizzato con modello ${model.nome} e misura ${base} x ${altezza}.`
     )}`;
 
+    // costruiamo il contenuto della card SENZA il pulsante (il bottone verrà messo fuori dalla card, nel wrapper)
     card.innerHTML += `
       <div class="card-icon">${model.icon}</div>
       <h2>${model.nome}</h2>
@@ -293,16 +301,20 @@ function aggiornaCards() {
       ${model.perfectMatch || model.rotatedMatch ? `
       <p class="cabinet">Numero Cabinet: <span id="cab${model.nome}">0</span></p>
       <p class="price">Prezzo Totale: <span id="price${model.nome}">0</span>€</p>
-      <button class="btn-request" onclick="window.open('${whatsappLink}','_blank')">Richiedi Preventivo</button>` 
-      : `<p>Misura più vicina: ${model.nearestBase} x ${model.nearestAltezza} cm</p>
-         <button class="btn-request" onclick="window.open('${whatsappLink}','_blank')">Richiedi Preventivo</button>`}
+      ` : `<p>Misura più vicina: ${model.nearestBase} x ${model.nearestAltezza} cm</p>`}
     `;
+
+    // bottone posizionato FUORI dalla card e SOTTO la card (all'interno del wrapper)
+    const btnRequest = document.createElement('button');
+    btnRequest.className = 'btn-request';
+    btnRequest.textContent = 'Richiedi Preventivo';
+    btnRequest.onclick = function() { window.open(whatsappLink, '_blank'); };
 
     // Click card per mostrare il popup con info dettagliata (fade in up / fade out down)
     card.addEventListener('click', (e) => {
-      if(e.target.classList.contains('btn-request')) return;
+      if(e.target.classList && e.target.classList.contains('btn-request')) return;
 
-      if(currentPopup && currentPopup !== card){
+      if (currentPopup && currentPopup !== card){
         currentPopup.classList.remove('show-popup');
       }
 
@@ -315,7 +327,10 @@ function aggiornaCards() {
       }
     });
 
-    cardsContainer.appendChild(card);
+    // aggiungo card e bottone al wrapper, poi il wrapper alla griglia .cards
+    wrapper.appendChild(card);
+    wrapper.appendChild(btnRequest);
+    cardsContainer.appendChild(wrapper);
 
     if(model.perfectMatch || model.rotatedMatch){
       setTimeout(()=>card.classList.add('show'),50);

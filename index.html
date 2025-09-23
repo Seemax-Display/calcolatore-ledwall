@@ -38,6 +38,7 @@ h3 { text-align: center; color: #333; font-weight: normal; font-size: 20px; marg
   min-height: 300px;
   position: relative;
   overflow: hidden;
+  cursor: pointer;
 }
 .card.green { background: linear-gradient(145deg, #e0f7ea, #b2f1d6); border-left: 8px solid #00c853; }
 .card.red { background: linear-gradient(145deg, #ffe5e5, #ffcccc); border-left: 8px solid #ff5252; }
@@ -49,12 +50,49 @@ h3 { text-align: center; color: #333; font-weight: normal; font-size: 20px; marg
 .card p { font-size: 16px; margin: 6px 0; }
 .card .price, .card .cabinet { font-weight: bold; font-size: 20px; margin-top: 12px; opacity: 0; transform: translateY(10px); transition: opacity 0.5s ease, transform 0.5s ease; }
 .card.show .price, .card.show .cabinet { opacity: 1; transform: translateY(0); }
-.card button { margin-top: 18px; padding: 12px 22px; font-size: 16px; background: #004b8d; color: #fff; border: none; border-radius: 8px; cursor: pointer; transition: all 0.3s ease; }
-.card button:hover { background: #00aaff; }
+.btn-request {
+  margin-top: 18px;
+  padding: 12px 22px;
+  font-size: 16px;
+  background: #004b8d;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 75, 141, 0.4);
+}
+.btn-request:hover {
+  background: #00aaff;
+  box-shadow: 0 6px 20px rgba(0, 170, 255, 0.5);
+  transform: translateY(-2px);
+}
 .tooltip { position: relative; cursor: pointer; border-bottom: 1px dotted #004b8d; }
 .tooltip .tooltiptext { visibility: hidden; width: 220px; background-color: #004b8d; color: #fff; text-align: center; border-radius: 6px; padding: 10px; position: absolute; z-index: 1; bottom: 130%; left: 50%; margin-left: -110px; opacity: 0; transition: opacity 0.4s, transform 0.4s; transform: translateY(10px); font-size: 14px; }
 .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; transform: translateY(0); }
-.alert { text-align:center; margin-top:30px; padding:20px; background:#fff3cd; color:#856404; border-radius:12px; font-size:18px; box-shadow:0 10px 30px rgba(0,0,0,0.15);}
+
+/* POPUP FADE IN UP / FADE OUT DOWN */
+.card-popup {
+  position: absolute;
+  top: 10px; left: 10px; right: 10px; bottom: 10px;
+  background: rgba(0,75,141,0.95);
+  color: #fff;
+  padding: 15px;
+  border-radius: 12px;
+  display: block;
+  opacity: 0;
+  transform: translateY(20px);
+  z-index: 10;
+  font-size: 14px;
+  overflow-y: auto;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+.card.show-popup .card-popup {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.alert { text-align:center; margin-top:30px; padding:20px; background:#fff3cd; color:#856404; border-radius:12px; font-size:18px; box-shadow:0 10px 30px rgba(0,0,0,0.15); }
 .alert a { color:#004b8d; font-weight:bold; text-decoration:none;}
 .alert a:hover { text-decoration:underline;}
 #layoutContainer { margin-top:40px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:15px; }
@@ -98,6 +136,9 @@ const alertContainer = document.getElementById('alertContainer');
 const layoutContainer = document.getElementById('layoutContainer');
 const whatsappNumber = "393294397445";
 
+// Variabile globale per popup
+let currentPopup = null;
+
 function animateValue(element, start, end, duration) {
   let startTimestamp = null;
   const step = (timestamp) => {
@@ -110,56 +151,65 @@ function animateValue(element, start, end, duration) {
 }
 
 function aggiornaLayout(models, rotatedMatchFlag) {
-    let title = "Layout suggerito per ";
-    if(Array.isArray(models)){
-        // Se ci sono due rettangolari 50x100 e 50x100, mostra entrambi
-        const p19 = models.find(m=>m.nome==='P1.9');
-        const p391 = models.find(m=>m.nome==='P3.91');
-        if(p19 && p391){
-            title += "P1.9 / P3.91";
-        } else {
-            title += models.map(m=>m.nome).join(" / ");
-        }
-    }
-    else title += models.nome;
+  layoutContainer.innerHTML = "";
 
-    layoutContainer.innerHTML = `<h3>${title}</h3>`;
-    
-    const layout = document.createElement('div');
-    layout.style.display = 'grid';
-    layout.style.gridGap = '3px';
-    layout.style.justifyContent = 'center';
+  if (Array.isArray(models) && models.length > 1) {
+      const p19 = models.find(m => m.nome === "P1.9");
+      const p391 = models.find(m => m.nome === "P3.91");
+      if (p19 && p391 && models.length === 2) {
+          const title = "Layout suggerito per P1.9 / P3.91";
+          layoutContainer.innerHTML += `<h3>${title}</h3>`;
+          generaLayout(p19, rotatedMatchFlag);
+      } else {
+          models.forEach(model => {
+              const title = `Layout suggerito per ${model.nome}`;
+              layoutContainer.innerHTML += `<h3>${title}</h3>`;
+              generaLayout(model, rotatedMatchFlag);
+          });
+      }
+  } else {
+      const model = Array.isArray(models) ? models[0] : models;
+      const title = `Layout suggerito per ${model.nome}`;
+      layoutContainer.innerHTML = `<h3>${title}</h3>`;
+      generaLayout(model, rotatedMatchFlag);
+  }
 
-    const model = Array.isArray(models) ? models[0] : models;
-    const isRectangle = model.cabX === 50 && model.cabY === 100;
-    const blockWidth = isRectangle && rotatedMatchFlag ? 2*30 : 30;
-    const blockHeight = isRectangle && rotatedMatchFlag ? 30 : (isRectangle ? 2*30 : 30);
+  if (rotatedMatchFlag) {
+    const warning = document.createElement('div');
+    warning.className = 'alert';
+    warning.innerHTML = "⚠️ È possibile ruotare alcuni cabinet rettangolari per ottenere questa misura, ma non è consigliato.";
+    layoutContainer.appendChild(warning);
+  }
+}
 
-    let cols = rotatedMatchFlag && isRectangle ? Math.ceil(baseInput.value / model.cabY) : Math.ceil(baseInput.value / model.cabX);
-    let rows = rotatedMatchFlag && isRectangle ? Math.ceil(altezzaInput.value / model.cabX) : Math.ceil(altezzaInput.value / model.cabY);
+function generaLayout(model, rotatedMatchFlag) {
+  const layout = document.createElement('div');
+  layout.style.display = 'grid';
+  layout.style.gridGap = '3px';
+  layout.style.justifyContent = 'center';
 
-    layout.style.gridTemplateColumns = `repeat(${cols}, ${blockWidth}px)`;
-    layout.style.gridTemplateRows = `repeat(${rows}, ${blockHeight}px)`;
+  const isRectangle = model.cabX === 50 && model.cabY === 100;
+  const blockWidth = isRectangle && rotatedMatchFlag ? 2*30 : 30;
+  const blockHeight = isRectangle && rotatedMatchFlag ? 30 : (isRectangle ? 2*30 : 30);
 
-    for(let r=0; r<rows; r++){
-        for(let c=0; c<cols; c++){
-            const cell = document.createElement('div');
-            cell.style.width = `${blockWidth}px`;
-            cell.style.height = `${blockHeight}px`;
-            cell.style.borderRadius = '4px';
-            cell.style.margin = '1px';
-            cell.style.backgroundColor = '#00aaff';
-            layout.appendChild(cell);
-        }
-    }
-    layoutContainer.appendChild(layout);
+  let cols = rotatedMatchFlag && isRectangle ? Math.ceil(baseInput.value / model.cabY) : Math.ceil(baseInput.value / model.cabX);
+  let rows = rotatedMatchFlag && isRectangle ? Math.ceil(altezzaInput.value / model.cabX) : Math.ceil(altezzaInput.value / model.cabY);
 
-    if(rotatedMatchFlag){
-      const warning = document.createElement('div');
-      warning.className = 'alert';
-      warning.innerHTML = "⚠️ È possibile ruotare alcuni cabinet rettangolari per ottenere questa misura, ma non è consigliato.";
-      layoutContainer.appendChild(warning);
-    }
+  layout.style.gridTemplateColumns = `repeat(${cols}, ${blockWidth}px)`;
+  layout.style.gridTemplateRows = `repeat(${rows}, ${blockHeight}px)`;
+
+  for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+          const cell = document.createElement('div');
+          cell.style.width = `${blockWidth}px`;
+          cell.style.height = `${blockHeight}px`;
+          cell.style.borderRadius = '4px';
+          cell.style.margin = '1px';
+          cell.style.backgroundColor = '#00aaff';
+          layout.appendChild(cell);
+      }
+  }
+  layoutContainer.appendChild(layout);
 }
 
 function aggiornaCards() {
@@ -184,6 +234,11 @@ function aggiornaCards() {
       rotatedMatch = false;
     }
 
+    const nearestCols = Math.round(base / model.cabX);
+    const nearestRows = Math.round(altezza / model.cabY);
+    const nearestBase = nearestCols * model.cabX;
+    const nearestAltezza = nearestRows * model.cabY;
+
     const colsNeeded = rotatedMatch ? Math.ceil(base / model.cabY) : Math.ceil(base / model.cabX);
     const rowsNeeded = rotatedMatch ? Math.ceil(altezza / model.cabX) : Math.ceil(altezza / model.cabY);
     const totalCab = colsNeeded * rowsNeeded;
@@ -195,7 +250,7 @@ function aggiornaCards() {
     const displayWidth = colsNeeded*(rotatedMatch?model.cabY:model.cabX);
     const displayHeight = rowsNeeded*(rotatedMatch?model.cabX:model.cabY);
 
-    return {...model, colsNeeded, rowsNeeded, totalCab, prezzoTotale, diff, perfectMatch, rotatedMatch, displayWidth, displayHeight};
+    return {...model, colsNeeded, rowsNeeded, totalCab, prezzoTotale, diff, perfectMatch, rotatedMatch, displayWidth, displayHeight, nearestBase, nearestAltezza};
   });
 
   const perfectMatches = results.filter(r => r.perfectMatch);
@@ -218,13 +273,18 @@ function aggiornaCards() {
 
     if(model.nome === bestPriceModel.nome) card.classList.add('best');
 
+    const popup = document.createElement('div');
+    popup.className = 'card-popup';
+    popup.innerHTML = `<strong>${model.nome}</strong><br>${model.info}`;
+    card.appendChild(popup);
+
     let whatsappLink = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(
       model.perfectMatch || model.rotatedMatch
       ? `Ti contatto dal calcolatore per il modello ${model.nome} con misura ${base} x ${altezza}. Voglio avere altre informazioni.`
       : `Ti contatto dal calcolatore per un preventivo personalizzato con modello ${model.nome} e misura ${base} x ${altezza}.`
     )}`;
 
-    card.innerHTML = `
+    card.innerHTML += `
       <div class="card-icon">${model.icon}</div>
       <h2>${model.nome}</h2>
       <p class="tooltip">Dimensione Cabinet: ${model.cabX} x ${model.cabY} cm
@@ -233,10 +293,28 @@ function aggiornaCards() {
       ${model.perfectMatch || model.rotatedMatch ? `
       <p class="cabinet">Numero Cabinet: <span id="cab${model.nome}">0</span></p>
       <p class="price">Prezzo Totale: <span id="price${model.nome}">0</span>€</p>
-      <button onclick="window.open('${whatsappLink}','_blank')">Richiedi Preventivo</button>` 
-      : `<p>Da personalizzare</p>
-         <button onclick="window.open('${whatsappLink}','_blank')">Richiedi Preventivo</button>`}
+      <button class="btn-request" onclick="window.open('${whatsappLink}','_blank')">Richiedi Preventivo</button>` 
+      : `<p>Misura più vicina: ${model.nearestBase} x ${model.nearestAltezza} cm</p>
+         <button class="btn-request" onclick="window.open('${whatsappLink}','_blank')">Richiedi Preventivo</button>`}
     `;
+
+    // Click card per mostrare il popup con info dettagliata (fade in up / fade out down)
+    card.addEventListener('click', (e) => {
+      if(e.target.classList.contains('btn-request')) return;
+
+      if(currentPopup && currentPopup !== card){
+        currentPopup.classList.remove('show-popup');
+      }
+
+      if(card.classList.contains('show-popup')){
+        card.classList.remove('show-popup');
+        currentPopup = null;
+      } else {
+        card.classList.add('show-popup');
+        currentPopup = card;
+      }
+    });
+
     cardsContainer.appendChild(card);
 
     if(model.perfectMatch || model.rotatedMatch){
@@ -246,14 +324,12 @@ function aggiornaCards() {
     }
   });
 
-  // Gestione layout e alert
   if(rotatedMatches.length > 0){
     alertContainer.innerHTML = `<div class="alert">
       ⚠️ È possibile ruotare alcuni cabinet rettangolari per ottenere questa misura, ma non è consigliato.
     </div>`;
     aggiornaLayout(rotatedMatches, true);
   } else if(perfectMatches.length === 0){
-    // Controllo multipli P1.9 / P3.91
     const rectMatches = results.filter(r => r.cabX===50 && r.cabY===100);
     let multiRect = [];
     rectMatches.forEach(r=>{

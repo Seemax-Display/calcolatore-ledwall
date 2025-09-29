@@ -1,4 +1,4 @@
-// Versione per AGENTI 1.0.0 creata da DAVID FAILLA
+// Versione per AGENTI 1.0.2 creata da DAVID FAILLA
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -51,6 +51,12 @@ h3 { text-align: center; color: #333; font-weight: normal; font-size: 20px; marg
 .card p { font-size: 16px; margin: 6px 0; }
 .card .price, .card .cabinet { font-weight: bold; font-size: 20px; margin-top: 12px; opacity: 0; transform: translateY(10px); transition: opacity 0.5s ease, transform 0.5s ease; }
 .card.show .price, .card.show .cabinet { opacity: 1; transform: translateY(0); }
+.card .bifacciale-label {
+  color: red;
+  font-weight: bold;
+  margin-top: 10px;
+  font-size: 18px;
+}
 .btn-request {
   margin-top: 18px;
   padding: 12px 22px;
@@ -114,6 +120,10 @@ h3 { text-align: center; color: #333; font-weight: normal; font-size: 20px; marg
       <label for="altezza">Altezza (cm):</label>
       <input type="number" id="altezza" placeholder="Es. 200">
     </div>
+    <div style="display:flex; align-items:center; gap:10px; margin-top:30px;">
+      <input type="checkbox" id="bifacciale">
+      <label for="bifacciale" style="font-weight:bold; color:#004b8d; cursor:pointer;">Bifacciale</label>
+    </div>
   </div>
 
   <div id="alertContainer"></div>
@@ -136,8 +146,8 @@ const cardsContainer = document.getElementById('cardsContainer');
 const alertContainer = document.getElementById('alertContainer');
 const layoutContainer = document.getElementById('layoutContainer');
 const whatsappNumber = "393294397445";
+const bifaccialeInput = document.getElementById('bifacciale');
 
-// Variabile globale per popup
 let currentPopup = null;
 
 function animateValue(element, start, end, duration) {
@@ -153,7 +163,6 @@ function animateValue(element, start, end, duration) {
 
 function aggiornaLayout(models, rotatedMatchFlag) {
   layoutContainer.innerHTML = "";
-
   if (Array.isArray(models) && models.length > 1) {
       const p19 = models.find(m => m.nome === "P1.9");
       const p391 = models.find(m => m.nome === "P3.91");
@@ -174,7 +183,6 @@ function aggiornaLayout(models, rotatedMatchFlag) {
       layoutContainer.innerHTML = `<h3>${title}</h3>`;
       generaLayout(model, rotatedMatchFlag);
   }
-
   if (rotatedMatchFlag) {
     const warning = document.createElement('div');
     warning.className = 'alert';
@@ -184,21 +192,18 @@ function aggiornaLayout(models, rotatedMatchFlag) {
 }
 
 function generaLayout(model, rotatedMatchFlag) {
+  const bifacciale = bifaccialeInput.checked;
   const layout = document.createElement('div');
   layout.style.display = 'grid';
   layout.style.gridGap = '3px';
   layout.style.justifyContent = 'center';
-
   const isRectangle = model.cabX === 50 && model.cabY === 100;
   const blockWidth = isRectangle && rotatedMatchFlag ? 2*30 : 30;
   const blockHeight = isRectangle && rotatedMatchFlag ? 30 : (isRectangle ? 2*30 : 30);
-
   let cols = rotatedMatchFlag && isRectangle ? Math.ceil(baseInput.value / model.cabY) : Math.ceil(baseInput.value / model.cabX);
   let rows = rotatedMatchFlag && isRectangle ? Math.ceil(altezzaInput.value / model.cabX) : Math.ceil(altezzaInput.value / model.cabY);
-
   layout.style.gridTemplateColumns = `repeat(${cols}, ${blockWidth}px)`;
   layout.style.gridTemplateRows = `repeat(${rows}, ${blockHeight}px)`;
-
   for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
           const cell = document.createElement('div');
@@ -206,7 +211,8 @@ function generaLayout(model, rotatedMatchFlag) {
           cell.style.height = `${blockHeight}px`;
           cell.style.borderRadius = '4px';
           cell.style.margin = '1px';
-          cell.style.backgroundColor = '#00aaff';
+          cell.style.backgroundColor = bifacciale ? '#ff6f61' : '#00aaff';
+          if(bifacciale) cell.style.border = '2px solid red';
           layout.appendChild(cell);
       }
   }
@@ -216,17 +222,16 @@ function generaLayout(model, rotatedMatchFlag) {
 function aggiornaCards() {
   const base = parseFloat(baseInput.value);
   const altezza = parseFloat(altezzaInput.value);
+  const bifacciale = bifaccialeInput.checked;
   cardsContainer.innerHTML = '';
   alertContainer.innerHTML = '';
   layoutContainer.innerHTML = '';
-
   if(!base || !altezza) return;
 
   let results = ledwalls.map(model => {
     const isRectangle = model.cabX === 50 && model.cabY === 100;
     let perfectMatch = false;
     let rotatedMatch = false;
-
     if(isRectangle){
       perfectMatch = (base % model.cabX === 0 && altezza % model.cabY === 0);
       rotatedMatch = (!perfectMatch && (base % model.cabY === 0 && altezza % model.cabX === 0));
@@ -234,53 +239,46 @@ function aggiornaCards() {
       perfectMatch = (base % model.cabX === 0 && altezza % model.cabY === 0);
       rotatedMatch = false;
     }
-
     const nearestCols = Math.round(base / model.cabX);
     const nearestRows = Math.round(altezza / model.cabY);
     const nearestBase = nearestCols * model.cabX;
     const nearestAltezza = nearestRows * model.cabY;
-
     const colsNeeded = rotatedMatch ? Math.ceil(base / model.cabY) : Math.ceil(base / model.cabX);
     const rowsNeeded = rotatedMatch ? Math.ceil(altezza / model.cabX) : Math.ceil(altezza / model.cabY);
-    const totalCab = colsNeeded * rowsNeeded;
-    const prezzoTotale = totalCab * model.prezzo;
+    let totalCab = colsNeeded * rowsNeeded;
+    let prezzoTotale = totalCab * model.prezzo;
+    if(bifacciale){
+      totalCab *= 2;
+      prezzoTotale *= 2;
+    }
     const diffX = Math.abs(base - (colsNeeded*(rotatedMatch?model.cabY:model.cabX)));
     const diffY = Math.abs(altezza - (rowsNeeded*(rotatedMatch?model.cabX:model.cabY)));
     const diff = diffX + diffY;
-
     const displayWidth = colsNeeded*(rotatedMatch?model.cabY:model.cabX);
     const displayHeight = rowsNeeded*(rotatedMatch?model.cabX:model.cabY);
-
-    return {...model, colsNeeded, rowsNeeded, totalCab, prezzoTotale, diff, perfectMatch, rotatedMatch, displayWidth, displayHeight, nearestBase, nearestAltezza};
+    return {...model, colsNeeded, rowsNeeded, totalCab, prezzoTotale, diff, perfectMatch, rotatedMatch, displayWidth, displayHeight, nearestBase, nearestAltezza, bifacciale};
   });
 
   const perfectMatches = results.filter(r => r.perfectMatch);
   const rotatedMatches = results.filter(r => r.rotatedMatch);
   const bestMatch = results.reduce((prev, curr) => curr.diff < prev.diff ? curr : prev);
-
   results.sort((a,b) => {
     if(a.perfectMatch && !b.perfectMatch) return -1;
     if(!a.perfectMatch && b.perfectMatch) return 1;
     return (a.diff + a.prezzoTotale*0.0001) - (b.diff + b.prezzoTotale*0.0001);
   });
-
   const bestPriceModel = results.reduce((prev, curr) => curr.prezzoTotale < prev.prezzoTotale ? curr : prev);
 
   results.forEach(model => {
-    // wrapper per mantenere il pulsante SOTTO la card relativa
     const wrapper = document.createElement('div');
-    // stile inline minimo per assicurare che il bottone stia sotto e centrato rispetto alla card
     wrapper.style.display = 'flex';
     wrapper.style.flexDirection = 'column';
     wrapper.style.alignItems = 'center';
-
     const card = document.createElement('div');
     if(model.perfectMatch) card.className = 'card green';
     else if(model.rotatedMatch) card.className = 'card yellow';
     else card.className = 'card red';
-
     if(model.nome === bestPriceModel.nome) card.classList.add('best');
-
     const popup = document.createElement('div');
     popup.className = 'card-popup';
     popup.innerHTML = `<strong>${model.nome}</strong><br>${model.info}`;
@@ -288,11 +286,10 @@ function aggiornaCards() {
 
     let whatsappLink = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(
       model.perfectMatch || model.rotatedMatch
-      ? `Ti contatto dal calcolatore per il modello ${model.nome} con misura ${base} x ${altezza}. Voglio avere altre informazioni.`
-      : `Ti contatto dal calcolatore per un preventivo personalizzato con modello ${model.nome} e misura ${base} x ${altezza}.`
+      ? `Ti contatto dal calcolatore per il modello ${model.nome} con misura ${base} x ${altezza}${model.bifacciale ? " (Bifacciale)" : ""}. Voglio avere altre informazioni.`
+      : `Ti contatto dal calcolatore per un preventivo personalizzato con modello ${model.nome} e misura ${base} x ${altezza}${model.bifacciale ? " (Bifacciale)" : ""}.`
     )}`;
 
-    // costruiamo il contenuto della card SENZA il pulsante (il bottone verrà messo fuori dalla card, nel wrapper)
     card.innerHTML += `
       <div class="card-icon">${model.icon}</div>
       <h2>${model.nome}</h2>
@@ -302,23 +299,20 @@ function aggiornaCards() {
       ${model.perfectMatch || model.rotatedMatch ? `
       <p class="cabinet">Numero Cabinet: <span id="cab${model.nome}">0</span></p>
       <p class="price">Prezzo Totale: <span id="price${model.nome}">0</span>€</p>
+      ${model.bifacciale ? `<p class="bifacciale-label">BIFACCIALE</p>` : ``}
       ` : `<p>Misura più vicina: ${model.nearestBase} x ${model.nearestAltezza} cm</p>`}
     `;
 
-    // bottone posizionato FUORI dalla card e SOTTO la card (all'interno del wrapper)
     const btnRequest = document.createElement('button');
     btnRequest.className = 'btn-request';
     btnRequest.textContent = 'Richiedi Preventivo';
     btnRequest.onclick = function() { window.open(whatsappLink, '_blank'); };
 
-    // Click card per mostrare il popup con info dettagliata (fade in up / fade out down)
     card.addEventListener('click', (e) => {
       if(e.target.classList && e.target.classList.contains('btn-request')) return;
-
       if (currentPopup && currentPopup !== card){
         currentPopup.classList.remove('show-popup');
       }
-
       if(card.classList.contains('show-popup')){
         card.classList.remove('show-popup');
         currentPopup = null;
@@ -328,7 +322,6 @@ function aggiornaCards() {
       }
     });
 
-    // aggiungo card e bottone al wrapper, poi il wrapper alla griglia .cards
     wrapper.appendChild(card);
     wrapper.appendChild(btnRequest);
     cardsContainer.appendChild(wrapper);
@@ -361,7 +354,7 @@ function aggiornaCards() {
     } else {
       alertContainer.innerHTML = `<div class="alert">
         Per questa misura ti consigliamo un <strong>${bestMatch.nome}</strong> con misure realizzabili ${bestMatch.displayWidth} x ${bestMatch.displayHeight} cm.<br>
-        Puoi richiedere un preventivo personalizzato cliccando <a href="https://wa.me/${whatsappNumber}?text=${encodeURIComponent(`Ti contatto dal calcolatore per un preventivo personalizzato con misura ${base} x ${altezza}.`)}" target="_blank">qui</a>.
+        Puoi richiedere un preventivo personalizzato cliccando <a href="https://wa.me/${whatsappNumber}?text=${encodeURIComponent(`Ti contatto dal calcolatore per un preventivo personalizzato con misura ${base} x ${altezza}${bifacciale ? " (Bifacciale)" : ""}.`)}" target="_blank">qui</a>.
       </div>`;
       aggiornaLayout([bestMatch], false);
     }
@@ -372,6 +365,7 @@ function aggiornaCards() {
 
 baseInput.addEventListener('input', aggiornaCards);
 altezzaInput.addEventListener('input', aggiornaCards);
+bifaccialeInput.addEventListener('change', aggiornaCards);
 </script>
 </body>
 </html>

@@ -1106,14 +1106,21 @@
       { nome: "P4", cabX: 96, cabY: 96, prezzo: 750, info: "Ledwall Display P4 | Misura Cabinet: 0.96x0.96 | Qualità Buona da Medie e Lunghe Distanze. | Utilizzabile prettamente per Installazioni Outdoor. | Adatto per Installazioni su Parete e a Bandiera.", icon: "🖥️" }
     ];
 
-    // === INSTALLAZIONE COSTI (€/ soglie m²) ===
-    var INSTALL_COSTS = [
+    // INSTALLAZIONE – fasce fino a 20+
+    const INSTALL_COSTS = [
       { th:1.5,  parete:500,  bandiera:500,  palo:500,  vetrina:400 },
       { th:2.0,  parete:650,  bandiera:600,  palo:600,  vetrina:500 },
       { th:2.75, parete:680,  bandiera:620,  palo:620,  vetrina:520 },
       { th:3.0,  parete:700,  bandiera:680,  palo:680,  vetrina:550 },
       { th:4.0,  parete:850,  bandiera:750,  palo:750,  vetrina:600 },
-      { th:5.0,  parete:1000, bandiera:900,  palo:900,  vetrina:700 }
+      { th:5.0,  parete:1000, bandiera:900,  palo:900,  vetrina:700 },
+      { th:6.0,  parete:1100, bandiera:1000, palo:1000, vetrina:800 },
+      { th:7.0,  parete:1200, bandiera:1100, palo:1100, vetrina:900 },
+      { th:8.0,  parete:1300, bandiera:1200, palo:1200, vetrina:1000 },
+      { th:9.0,  parete:1400, bandiera:1300, palo:1300, vetrina:1100 },
+      { th:15.0, parete:1550, bandiera:1450, palo:1450, vetrina:1200 },
+      { th:20.0, parete:1800, bandiera:1650, palo:1650, vetrina:1500 },
+      { th:1e9,  parete:2000, bandiera:1950, palo:1950, vetrina:1800 }
     ];
     function installCost(areaMq, tipo){
       if(tipo==='personalizza') return 0;
